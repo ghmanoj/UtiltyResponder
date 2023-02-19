@@ -2,7 +2,6 @@ const express = require("express");
 const puppeteer = require('puppeteer');
 const { exec } = require("child_process");
 
-// get env
 require('dotenv').config();
 
 const app = express();
@@ -11,12 +10,16 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }));
 
 
-const PORT = 8081;
+const PORT                  = 8081;
+const USPS_USR              = process.env.USPS_USR;
+const USPS_PW               = process.env.USPS_PW;
+const BROWSER_PATH          = '/Applications/Brave Browser.app/Contents/MacOS/Brave Browser';
+const USPS_LOGIN_URL        = 'https://reg.usps.com/entreg/LoginAction_input?app=Phoenix&appURL=https://www.usps.com/';
+const USPS_DASHBOARD_URL    = 'https://informeddelivery.usps.com/box/pages/secure/DashboardAction_input.action?restart=1';
 
-const USPS_USR = process.env.USPS_USR
-const USPS_PW = process.env.USPS_PW
+if (USPS_USR === null || USPS_USR === undefined \
+    || USPS_PW === null || USPS_PW === undefined) {
 
-if (USPS_USR === null || USPS_USR === undefined || USPS_PW === null || USPS_PW === undefined) {
     throw "No valid USPS_USR and USPS_PW";
 }
 
@@ -29,9 +32,7 @@ const availableCommands = {
     'utility:logout': 'shutdown /l',
     'utility:lock': 'shutdown /l',
     'utility:mailbox': 'mailbox',
-    'system:status': 'uptime'
-}
-
+    'system:status': 'uptime' }
 
 function getAppropriateCommand(message) {
     let keys = Object.keys(message);
@@ -66,17 +67,18 @@ function checkMailBoxAndRespond(res) {
                 try {
                     const browser = await puppeteer.launch({
                         headless: false,
-                        executablePath: "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+                        executablePath: BROWSER_PATH 
                     });
                     const page = await browser.newPage();
-                    await page.goto('https://reg.usps.com/entreg/LoginAction_input?app=Phoenix&appURL=https://www.usps.com/');
+                    await page.goto(USPS_LOGIN_URL);
                     await page.type('#username', USPS_USR);
                     await page.type('#password', USPS_PW);
                     await page.click('#btn-submit');
                     await page.waitForNavigation();
-                    await page.goto('https://informeddelivery.usps.com/box/pages/secure/DashboardAction_input.action?restart=1')
+                    await page.goto(USPS_DASHBOARD_URL);
 
-                    let text = await page.evaluate(() => Array.from(document.querySelectorAll('#cp_week li'), element => element.textContent));
+                    let text = await page.evaluate(() => Array.from(document.querySelectorAll('#cp_week li'), 
+                        element => element.textContent));
                     text = text.map((value) => String(value.trim()));
                     await browser.close();
 
